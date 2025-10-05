@@ -1,20 +1,32 @@
-srsRAN Project
-==============
+# L4Span
 
-[![Build Status](https://github.com/srsran/srsRAN_Project/actions/workflows/ccpp.yml/badge.svg?branch=main)](https://github.com/srsran/srsRAN_Project/actions/workflows/ccpp.yml)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/7868/badge)](https://www.bestpractices.dev/projects/7868)
+**L4Span** is a prototype implementation for Low-Latency Low-Loss and Scalable (L4S) congestion signal architecture in the 5G network to achieve ultra-low sojourn time in the RLC buffer while maintaining a good capacity usage. L4Span is located above the SDAP layer to perform the ECN marking for 1) uplink ACK packet to short-circuit the RAN if possible (for TCP traffic) or 2) downlink packet to enable generic L4S marking mechanism (for UDP or QUIC traffic).
 
-The srsRAN Project is a complete 5G RAN solution, featuring an ORAN-native CU/DU developed by [SRS](http://www.srs.io).
+![l4span](figures/l4span.png "L4Span system overview")
 
-The solution includes a complete L1/2/3 implementation with minimal external dependencies. Portable across processor architectures, the software has been optimized for x86 and ARM. srsRAN follows the 3GPP 5G system architecture implementing the functional splits between distributed unit (DU) and centralized unit (CU). The CU is further disaggregated into control plane (CU-CP) and user-plane (CU-UP).
+L4Span is [published](https://doi.org/10.1145/3768972) in ACM CoNEXT 2025: if you use this code, we ask that you cite our paper.
 
-See the [srsRAN Project](https://www.srsran.com/) for information, guides and project news.
+```
+@article{10.1145/3768972,
+author = {Wan, Haoran and Jamieson, Kyle},
+title = {L4Span: Spanning Congestion Signaling over NextG Networks for Interactive Applications},
+year = {2025},
+issue_date = {December 2025},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {3},
+number = {CoNEXT4},
+url = {https://doi.org/10.1145/3768972},
+doi = {10.1145/3768972},
+journal = {Proc. ACM Netw.},
+month = nov,
+articleno = {25},
+numpages = {25},
+keywords = {5G Network; Congestion Control; ECN Feedback; L4S Architecture}
+}
+```
 
-Build instructions and user guides - [srsRAN Project documentation](https://docs.srsran.com/projects/project).
-
-Community announcements and support - [Discussion board](https://www.github.com/srsran/srsran_project/discussions).
-
-Features and roadmap - [Features](https://docs.srsran.com/projects/project/en/latest/general/source/2_features_and_roadmap.html).
+L4Span is implemented on top of the [srsRAN Project](https://www.srsran.com/). Build instructions and user guides for srsRAN Project - [srsRAN Project documentation](https://docs.srsran.com/projects/project).
 
 Build Preparation
 -----------------
@@ -22,14 +34,15 @@ Build Preparation
 ### Dependencies
 
 * Build tools:
-  * cmake:               <https://cmake.org/>
-  
+
+  * cmake:               [https://cmake.org/](https://cmake.org/)
 * Mandatory requirements:
-  * libfftw:             <https://www.fftw.org/>
-  * libsctp:             <https://github.com/sctp/lksctp-tools>
-  * yaml-cpp:            <https://github.com/jbeder/yaml-cpp>
-  * mbedTLS:             <https://www.trustedfirmware.org/projects/mbed-tls/>
-  * googletest:          <https://github.com/google/googletest/>
+
+  * libfftw:             [https://www.fftw.org/](https://www.fftw.org/)
+  * libsctp:             [https://github.com/sctp/lksctp-tools](https://github.com/sctp/lksctp-tools)
+  * yaml-cpp:            [https://github.com/jbeder/yaml-cpp](https://github.com/jbeder/yaml-cpp)
+  * mbedTLS:             [https://www.trustedfirmware.org/projects/mbed-tls/](https://www.trustedfirmware.org/projects/mbed-tls/)
+  * googletest:          [https://github.com/google/googletest/](https://github.com/google/googletest/)
 
 You can install the build tools and mandatory requirements for some example distributions with the commands below:
 
@@ -40,56 +53,20 @@ You can install the build tools and mandatory requirements for some example dist
 sudo apt-get install cmake make gcc g++ pkg-config libfftw3-dev libmbedtls-dev libsctp-dev libyaml-cpp-dev libgtest-dev
 ```
 
-</details>
-<details>
-<summary><strong>Fedora</strong></summary>
+Build and Run Instructions
+--------------------------
+
+First, clone the L4Span Project repository:
 
 ```bash
-sudo yum install cmake make gcc gcc-c++ fftw-devel lksctp-tools-devel yaml-cpp-devel mbedtls-devel gtest-devel
-```
-
-</details>
-<details>
-<summary><strong>Arch Linux</strong></summary>
-
-```bash
-sudo pacman -S cmake make base-devel fftw mbedtls yaml-cpp lksctp-tools gtest
-```
-
-</details>
-
-#### Split-8
-
-For Split-8 configurations, either UHD or ZMQ is required for the fronthaul interface. Both drivers are linked below, please see their respective documentation for installation instructions.
-
-* UHD:                 <https://github.com/EttusResearch/uhd>
-* ZMQ:                 <https://zeromq.org/>
-
-#### Split-7.2
-
-For Split-7.2 configurations no extra 3rd-party dependencies are required, only those listed above.
-
-Optionally, DPDK can be installed for high-bandwidth low-latency scenarios. For more information on this, please see [this tutorial](https://docs.srsran.com/projects/project/en/latest/tutorials/source/dpdk/source/index.html#).
-
-Build Instructions
-------------------
-
-Download and build srsRAN:
-
-<details open>
-<summary><strong>Vanilla Installation</strong></summary>
-
-First, clone the srsRAN Project repository:
-
-```bash
-    git clone https://github.com/srsRAN/srsRAN_Project.git
+    git clone git@github.com:PrincetonUniversity/L4Span.git
 ```
 
 Then build the code-base:
 
 ```bash
 
-    cd srsRAN_Project
+    cd L4Span
     mkdir build
     cd build
     cmake ../ 
@@ -97,80 +74,22 @@ Then build the code-base:
     make test -j $(nproc)
 ```
 
-You can now run the gNB from ``srsRAN_Project/build/apps/gnb/``. If you wish to install the srsRAN Project gNB, you can use the following command:
+Start the [Open-5GS](https://open5gs.org/open5gs/docs/guide/01-quickstart/) as the 5G core. 
+
+And use the configuration file in `config/l4span/cu.yml` and `config/l4span/du_rf_b200_tdd_n78_20mhz.yml` as the CU and DU configuration files.
 
 ```bash
-    sudo make install
+cp config/l4span/cu.yml build/app/cu/
+cp config/l4span/du_rf_b200_tdd_n78_20mhz.yml build/app/du/
+cd build/app/cu
+sudo ./srscu -c cu.yml
+# in another terminal window
+cd build/app/du
+sudo ./srsdu -c du_rf_b200_tdd_n78_20mhz.yml
 ```
 
-</details>
+Then, you can connect your phone into the RAN and test with the L4S-enabled congestion control scheme in the downlink direction with the [L4S kernel](https://github.com/L4STeam/linux).
 
-<details>
-<summary><strong>ZMQ Enabled Installation</strong></summary>
+## File Structure
 
-Once ZMQ has been installed you will need build of srsRAN Project with the correct flags to enable the use of ZMQ.
-
-The following commands can be used to clone and build srsRAN Project from source. The relevant flags are added to the ``cmake`` command to enable the use of ZMQ:
-
-```bash
-git clone https://github.com/srsran/srsRAN_Project.git
-cd srsRAN_Project
-mkdir build
-cd build
-cmake ../ -DENABLE_EXPORT=ON -DENABLE_ZEROMQ=ON
-make -j $(nproc)
-make test -j $(nproc)
-```
-
-Pay extra attention to the cmake console output. Make sure you read the following line to ensure ZMQ has been correctly detected by srsRAN:
-
-```bash
-...
--- FINDING ZEROMQ.
--- Checking for module 'ZeroMQ'
---   No package 'ZeroMQ' found
--- Found libZEROMQ: /usr/local/include, /usr/local/lib/libzmq.so
-...
-```
-
-</details>
-
-<details>
-<summary><strong>DPDK Enabled Installation</strong></summary>
-
-Once DPDK has been installed and configured you will need to create a clean build of srsRAN Project to enable the use of DPDK.
-
-If you have not done so already, download the code-base with the following command:
-
-```bash
-git clone https://github.com/srsRAN/srsRAN_Project.git
-```
-
-Then build the code-base, making sure to include the correct flags when running cmake:
-
-```bash
-cd srsRAN_Project
-mkdir build
-cd build
-cmake ../ -DENABLE_DPDK=True -DASSERT_LEVEL=MINIMAL
-make -j $(nproc)
-make test -j $(nproc)
-```
-
-</details>
-
-### PHY Tests
-
-PHY layer tests use binary test vectors and are not built by default. To enable, see the [docs](https://docs.srsran.com/projects/project/en/latest/user_manuals/source/installation.html).
-
-Deploying srsRAN Project
-------------------------
-
-srsRAN Project can be run in two ways:
-
-* As a monolithic gNB (combined CU & DU)
-* With a split CU and DU
-
-For exact details on running srsRAN Project in any configuration, see [the documentation](https://docs.srsran.com/projects/project/en/latest/user_manuals/source/running.html).
-
-For information on configuring and running srsRAN for various different use cases,  check our [tutorials](https://docs.srsran.com/projects/project/en/latest/tutorials/source/index.html).
+All our implementations of the L4Span functionalities are in the directory of `lib/mark` and `include/mark`, check these files to enable short-circuiting design in the paper or downlink packet marking. Please also refer to `lib/cu_up/pdu_session_manager_impl.cpp` on the creation of the L4Span entity.

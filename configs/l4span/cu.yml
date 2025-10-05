@@ -1,0 +1,67 @@
+# Example config for a locally deployed CU listening on the localhost interface for a DU connection
+# qos:
+#   -
+#     five_qi: 9 # E.g. Buffered video streaming, TCP-based traffic
+#     rlc:
+#       mode: am
+#       am:
+#         tx:
+#           sn: 12
+#           t-poll-retransmit: 80
+#           max-retx-threshold: 4
+#           poll-pdu: 64
+#           poll-byte: 125
+#           queue-size: 512
+#           queue-bytes: 6172672
+#         rx:
+#           sn: 12
+#           t-reassembly: 80
+#           t-status-prohibit: 10
+#     pdcp:
+#       integrity_required: false
+#       tx:
+#         sn: 12
+#         discard_timer: -1
+#         status_report_required: false
+#       rx:
+#         sn: 12
+#         t_reordering: 80
+#         out_of_order_delivery: false
+#     f1u_du:
+#       backoff_timer: 10
+#     f1u_cu_up:
+#       backoff_timer: 10
+#     mac:
+#       lc_priority: 5
+#       lc_group_id: 2
+#       bucket_size_duration_ms: 5
+      
+cu_cp:
+  amf:
+    addr: 127.0.0.20
+    port: 38412
+    bind_addr: 127.0.10.2
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1
+  f1ap:
+    bind_addr: 127.0.10.1
+
+cu_up:
+  nru:
+    bind_addr: 127.0.10.1
+
+log:
+  filename: /tmp/cu.log
+  all_level: info
+
+pcap:
+  ngap_filename: /tmp/cu_ngap.pcap
+  ngap_enable: true
+  f1u_filename: /tmp/gnb_f1u.pcap      # Optional TEXT (/tmp/gnb_f1u.pcap). Path for F1-U (NRU) PCAPs. 
+  f1u_enable: true                     # Optional BOOLEAN (false). Enable/disable F1-U (NRU) packet capture. Supported: [false, true].
+  n3_filename: /tmp/gnb_n3.pcap         # Optional TEXT (/tmp/gnb_n3.pcap). Path for N3 PCAPs. 
+  n3_enable: true                      # Optional BOOLEAN (false). Enable/disable N3 packet capture. Supported: [false, true].

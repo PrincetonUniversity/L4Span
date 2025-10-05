@@ -1,0 +1,82 @@
+# Example config for a DU with one 20MHz TDD cell using a USRP as RF frontend.
+# qos:
+#   -
+#     five_qi: 9 # E.g. Buffered video streaming, TCP-based traffic
+#     rlc:
+#       mode: am
+#       am:
+#         tx:
+#           sn: 12
+#           t-poll-retransmit: 80
+#           max-retx-threshold: 4
+#           poll-pdu: 64
+#           poll-byte: 125
+#           queue-size: 512
+#           queue-bytes: 6172672
+#         rx:
+#           sn: 12
+#           t-reassembly: 80
+#           t-status-prohibit: 10
+#     pdcp:
+#       integrity_required: false
+#       tx:
+#         sn: 12
+#         discard_timer: -1
+#         status_report_required: false
+#       rx:
+#         sn: 12
+#         t_reordering: 80
+#         out_of_order_delivery: false
+#     f1u_du:
+#       backoff_timer: 10
+#     f1u_cu_up:
+#       backoff_timer: 10
+#     mac:
+#       lc_priority: 5
+#       lc_group_id: 2
+#       bucket_size_duration_ms: 5
+
+f1ap:
+  cu_cp_addr: 127.0.10.1
+  bind_addr: 127.0.10.3
+nru:
+  bind_addr: 127.0.10.3
+
+ru_sdr:
+  device_driver: uhd
+  device_args: type=x300
+  srate: 23.04
+  tx_gain: 30
+  rx_gain: 30
+  # clock: external
+  # sync: external
+
+cell_cfg:
+  dl_arfcn: 650000
+  band: 78
+  channel_bandwidth_MHz: 20
+  common_scs: 30
+  plmn: "00101"
+  tac: 7
+  pci: 1
+  pdsch:
+    mcs_table: qam256 
+    #   sched_expert_cfg:
+    # policy_sched_cfg:
+    #  pf_sched:
+    #    pf_sched_fairness_coeff: 2.0 
+
+log:
+  filename: /tmp/du.log
+  all_level: debug
+
+pcap:
+  mac_enable: true
+  mac_filename: /tmp/du_mac.pcap
+  f1ap_enable: true
+  f1ap_filename: /tmp/du_f1ap.pcap
+  f1u_enable: true
+  f1u_filename: /tmp/du_f1u.pcap
+  rlc_filename: /tmp/gnb_rlc.pcap       # Optional TEXT (tmp/gnb_rlc.pcap). Path for RLC PCAPs.
+  rlc_rb_type: all                      # Optional TEXT. Sets the RLC PCAP RB type. Supported: [all, srb, drb].
+  rlc_enable: true                     # Optional BOOLEAN (false). Enable/disable RLC packet capture. Supported: [false, true].
