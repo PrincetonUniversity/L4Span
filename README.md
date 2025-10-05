@@ -4,7 +4,7 @@
 
 ![l4span](figures/l4span.png "L4Span system overview")
 
-L4Span is [published](https://doi.org/10.1145/3768972) in ACM CoNEXT 2025: if you use this code, we ask that you cite our paper.
+L4Span is [published](https://doi.org/10.1145/3768972) in ACM CoNEXT 2025: if you use this code, please cite our paper.
 
 ```
 @article{10.1145/3768972,
