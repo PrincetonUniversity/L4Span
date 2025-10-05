@@ -88,8 +88,8 @@ cd build/app/du
 sudo ./srsdu -c du_rf_b200_tdd_n78_20mhz.yml
 ```
 
-Then, you can connect your phone into the RAN and test with the L4S-enabled congestion control scheme in the downlink direction with the [L4S kernel](https://github.com/L4STeam/linux).
+Then, you can connect your phone into the RAN and test with the L4S-enabled congestion control scheme in the downlink direction with the [L4S kernel](https://github.com/L4STeam/linux). We tested with the Moto G 5G phones and Amarisoft UE Emulator.
 
 ## File Structure
 
-All our implementations of the L4Span functionalities are in the directory of `lib/mark` and `include/mark`, check these files to enable short-circuiting design in the paper or downlink packet marking. Please also refer to `lib/cu_up/pdu_session_manager_impl.cpp` on the creation of the L4Span entity.
+All our implementations of the L4Span functionalities are in the directory of `lib/mark` and `include/mark`, check these files to enable short-circuiting uplink packet marking or downlink packet marking. Please also refer to `lib/cu_up/pdu_session_manager_impl.cpp` on the creation of the L4Span entity.
