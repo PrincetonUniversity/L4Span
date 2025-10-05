@@ -1,0 +1,93 @@
+#
+# Copyright 2013-2024 Software Radio Systems Limited
+#
+# By using this file, you agree to the terms and conditions set
+# forth in the LICENSE file which can be found at the top level of
+# the distribution.
+#
+
+Rebaser:
+  cron: "*/10 6-21 * * 1-5"
+  cron_timezone: "Europe/Madrid"
+  ref: refs/heads/dev
+  variables:
+    - variable_type: env_var
+      key: CI_DESCRIPTION
+      value: "Rebaser"
+      raw: false
+    - variable_type: env_var
+      key: NOTIFY_SLACK
+      value: "false"
+      raw: false
+
+Nightly Build Unit Tests:
+  cron: "45 23 * * 0-5"
+  cron_timezone: "Europe/Madrid"
+  ref: refs/heads/dev
+  variables:
+    - variable_type: env_var
+      key: CI_DESCRIPTION
+      value: "Nightly Build Unit Tests"
+      raw: false
+    - variable_type: env_var
+      key: NOTIFY_SLACK
+      value: "true"
+      raw: false
+    - variable_type: env_var
+      key: SLACK_CHANNEL_OK
+      value: "#ci_gnb"
+      raw: false
+
+Nightly E2E Tests:
+  cron: "30 22 * * 0-5"
+  cron_timezone: "Europe/Madrid"
+  ref: refs/heads/dev
+  variables:
+    - variable_type: env_var
+      key: CI_DESCRIPTION
+      value: "Nightly E2E Tests"
+      raw: false
+    - variable_type: env_var
+      key: NOTIFY_SLACK
+      value: "true"
+      raw: false
+    - variable_type: env_var
+      key: SLACK_CHANNEL_OK
+      value: "#ci_gnb"
+      raw: false
+
+Weekly:
+  cron: "00 13 * * 6"
+  cron_timezone: "Europe/Madrid"
+  ref: refs/heads/dev
+  variables:
+    - variable_type: env_var
+      key: CI_DESCRIPTION
+      value: "Weekly"
+      raw: false
+    - variable_type: env_var
+      key: NOTIFY_SLACK
+      value: "true"
+      raw: false
+    - variable_type: env_var
+      key: SLACK_CHANNEL_OK
+      value: "#ci_gnb"
+      raw: false
+
+Alternative OSs:
+  cron: "00 10 * * 6"
+  cron_timezone: "Europe/Madrid"
+  ref: refs/heads/dev
+  variables:
+    - variable_type: env_var
+      key: CI_DESCRIPTION
+      value: "Alternative OSs"
+      raw: false
+    - variable_type: env_var
+      key: NOTIFY_SLACK
+      value: "true"
+      raw: false
+    - variable_type: env_var
+      key: SLACK_CHANNEL_OK
+      value: "#ci_gnb"
+      raw: false

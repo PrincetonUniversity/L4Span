@@ -1,0 +1,17 @@
+iperf3 -s -p 5201 & 
+iperf3 -s -p 5202 & 
+iperf3 -s -p 5203 & 
+iperf3 -s -p 5204 & 
+iperf3 -s -p 5205 & 
+iperf3 -s -p 5206 & 
+iperf3 -s -p 5207 & 
+iperf3 -s -p 5208 & 
+iperf3 -s -p 5209 & 
+iperf3 -s -p 5210 & 
+iperf3 -s -p 5211 & 
+iperf3 -s -p 5212 & 
+iperf3 -s -p 5213 & 
+iperf3 -s -p 5214 & 
+iperf3 -s -p 5215 & 
+iperf3 -s -p 5216 & 
+tcpdump -i any -w end_to_end_prague_1.pcap

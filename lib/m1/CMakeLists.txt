@@ -1,0 +1,13 @@
+add_library(srsran_m1_cu_up cu_up/m1_bearer_impl.cpp cu_up/m1_bearer_factory.cpp)
+add_library(srsran_m1_du du/m1_bearer_impl.cpp du/m1_bearer_factory.cpp)
+
+# Local connector
+add_library(srsgnb_app_m1_connector local_connector/m1_local_connector.cpp)
+target_link_libraries(srsgnb_app_m1_connector srsran_m1_cu_up)
+
+#Split connector
+add_library(srsgnb_app_m1_cu_up_split_connector cu_up/split_connector/m1_split_connector_factory.cpp cu_up/split_connector/m1_split_connector.cpp )
+target_link_libraries(srsgnb_app_m1_cu_up_split_connector srsran_m1_cu_up)
+
+add_library(srsgnb_app_m1_du_split_connector du/split_connector/m1_split_connector.cpp du/split_connector/m1_split_connector_factory.cpp)
+target_link_libraries(srsgnb_app_m1_du_split_connector srsran_m1_du)

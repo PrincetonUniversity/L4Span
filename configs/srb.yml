@@ -1,0 +1,26 @@
+# SRB example configurations for Signaling Radio Bearers (SRBs) 1 and 2
+
+# This is a supplementary configuration to modify the MAC, RLC and PDCP configuration 
+# on a per SRB basis.
+
+srbs:
+  -
+    srb_id: 1
+    rlc:
+      tx:
+        sn: 12
+        t-poll-retransmit: 45
+        max-retx-threshold: 8
+        poll-pdu: -1
+        poll-byte: -1
+        queue-size: 256
+        queue-bytes: 64000
+      rx:
+        sn: 12
+        t-reassembly: 35
+        t-status-prohibit: 0
+    mac:
+      lc_priority: 1
+      lc_group_id: 0
+      bucket_size_duration_ms: 5
+      prioritized_bit_rate_kBps: 65537

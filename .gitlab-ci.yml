@@ -1,0 +1,577 @@
+#
+# Copyright 2021-2024 Software Radio Systems Limited
+#
+# This file is part of srsRAN
+#
+# srsRAN is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+#
+# srsRAN is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Affero General Public License for more details.
+#
+# A copy of the GNU Affero General Public License can be found in
+# the LICENSE file in the top-level directory of this distribution
+# and at http://www.gnu.org/licenses/.
+#
+
+# How to test nighlt/weekly schedules
+# Generate a schedule for your branch whit a CI_DESCRIPTION variable
+# that contains "Nightly"/"Weekly" and an extra word
+# Ex: "Test Weekly", "Nighlty add feature"
+
+include:
+  - project: softwareradiosystems/ci/tools
+    ref: "20"
+    file: .gitlab/ci-shared/setup/all.yml
+  - project: softwareradiosystems/ci/tools
+    ref: "20"
+    file: .gitlab/ci-shared/features/all.yml
+  - project: softwareradiosystems/ci/tools
+    ref: "20"
+    file: .gitlab/ci-shared/tools/python.yml
+  - project: softwareradiosystems/ci/tools
+    ref: "20"
+    file: .gitlab/ci-shared/tools/test_reporter.yml
+  - project: softwareradiosystems/ci/tools
+    ref: "20"
+    file: .gitlab/ci-shared/tools/tagger.yml
+  - local: .gitlab/ci/builders/version.yml
+  - local: .gitlab/ci/build.yml
+  - local: .gitlab/ci/trx.yml
+  - local: .gitlab/ci/e2e.yml
+  - local: .gitlab/ci/release.yml
+
+stages:
+  - ci
+  - static
+  - build and unit tests
+  - zmq
+  - rf
+  - manual
+  - documentation
+  - private
+  - public
+  - release
+
+variables:
+  SLACK_CHANNEL_OK: "#ci_gnb"
+  SLACK_CHANNEL_FAIL: "#ci_gnb"
+  SLACK_CHANNEL_INFO_MSG: "#ci_gnb_verbose"
+  AUTOREBASER_PRS_IN_QUEUE: 1
+
+################################################################################
+## CI
+################################################################################
+job cleaner:
+  extends: .job cleaner
+  timeout: 4h
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+
+pr reminder:
+  extends: .pr reminder
+  rules:
+    - if: $NOTIFY_SLACK != "true"
+      when: never
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+
+trigger builder:
+  stage: ci
+  rules:
+    - if: $ON_MR
+      changes:
+        paths:
+          - .gitlab/ci/builders.yml
+          - .gitlab/ci/builders/**/*
+          - docker/scripts/**/*
+  trigger:
+    include: .gitlab/ci/builders.yml
+    strategy: depend
+
+trigger docker:
+  stage: ci
+  rules:
+    - if: $ON_MR
+      changes:
+        paths:
+          - .gitlab/ci/docker.yml
+          - docker/**/*.{yml,env,json,toml,py,sh,csv,py,toml}
+          - docker/**/Dockerfile
+          - .gdbinit
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      variables:
+        CI_DESCRIPTION: $CI_DESCRIPTION
+    - if: $CI_DESCRIPTION =~ /Weekly/
+      variables:
+        CI_DESCRIPTION: $CI_DESCRIPTION
+  trigger:
+    include: .gitlab/ci/docker.yml
+    strategy: depend
+  variables:
+    PY_DIR: docker/metrics_server
+
+matlab nightly:
+  stage: ci
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      variables:
+        ON_SCHEDULE: "true"
+        CI_DESCRIPTION: Nightly
+        SRSRAN_COMMIT: $CI_COMMIT_SHA
+        NOTIFY_SLACK: "true"
+      when: delayed
+      start_in: 3 hours
+  inherit:
+    variables: false
+  trigger:
+    project: softwareradiosystems/srsgnb_matlab
+    branch: master
+
+enterprise nightly:
+  stage: ci
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      variables:
+        ON_SCHEDULE: "true"
+        CI_DESCRIPTION: Nightly
+        SRSRAN_COMMIT: $CI_COMMIT_SHA
+        NOTIFY_SLACK: "true"
+      when: delayed
+      start_in: 3 hours
+  inherit:
+    variables: false
+  trigger:
+    project: softwareradiosystems/srsran_5g_enterprise
+    branch: main
+
+matlab weekly:
+  stage: ci
+  rules:
+    - if: $CI_DESCRIPTION =~ /Weekly/
+      variables:
+        ON_SCHEDULE: "true"
+        CI_DESCRIPTION: Weekly
+        SRSRAN_COMMIT: $CI_COMMIT_SHA
+        NOTIFY_SLACK: "true"
+      when: delayed
+      start_in: 20 hours
+  inherit:
+    variables: false
+  trigger:
+    project: softwareradiosystems/srsgnb_matlab
+    branch: master
+
+helm weekly:
+  stage: ci
+  rules:
+    - if: $CI_DESCRIPTION =~ /Weekly/
+      variables:
+        ON_SCHEDULE: "true"
+        CI_DESCRIPTION: Synchronization with srsGNB
+        NOTIFY_SLACK: "true"
+      when: delayed
+      start_in: 20 hours
+  inherit:
+    variables: false
+  trigger:
+    project: softwareradiosystems/ci/srsgnb_k8s
+    branch: main
+  needs:
+    - job: trigger docker
+      artifacts: false
+
+################################################################################
+## Static
+################################################################################
+headers:
+  image: ubuntu
+  stage: static
+  rules:
+    - if: $ON_MR
+      exists:
+        - "**/CMakeLists.txt"
+        - "**/Dockerfile"
+        - "**/*.cmake"
+        - "**/*.yml"
+        - "**/*.sh"
+  script:
+    - .gitlab/ci/release/update_headers.sh
+  needs: []
+
+include-guards:
+  extends: .include-guards
+  parallel:
+    matrix:
+      - INPUT_PATH: "include/srsran"
+        INPUT_IGNORE: "/bundled/"
+      - INPUT_PATH: "."
+        INPUT_IGNORE: "^\\(include\\|docs\\|external\\)/.*"
+
+full-code-format:
+  extends: .full-code-format
+  rules:
+    - if: $ON_MR
+      changes:
+        - .clang-format
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+
+.codechecker:
+  image: ${CR_REGISTRY_URI}/srsgnb/codechecker:${DOCKER_BUILDER_VERSION}
+  stage: static
+  tags:
+    - amd64
+  needs:
+    - job: builder version
+      optional: false
+      artifacts: true
+    - job: trigger builder
+      optional: true
+      artifacts: false
+  variables:
+    ANALYZER: ""
+    ANALYZER_ARGS: ""
+    ARTIFACT_EXTRA_PATH: ""
+    KUBERNETES_CPU_REQUEST: 6
+    KUBERNETES_CPU_LIMIT: 6
+    KUBERNETES_MEMORY_REQUEST: 12Gi
+    KUBERNETES_MEMORY_LIMIT: 12Gi
+    CHECK_PER_FILE_TIMEOUT: 600
+  before_script:
+    - |
+      echo "
+      -/usr/lib
+      -*tests/unittests
+      -*tests/integrationtests
+      -*tests/benchmarks
+      -*benchmarks
+      -*apps/examples
+      -*external
+      -*lib/asn1
+      -*lib/phy/generic_functions/fftx/lib_fftx_dftbat_srcs
+      -*lib/phy/generic_functions/fftx/lib_fftx_idftbat_srcs" >/tmp/codechecker_skip
+    - |
+      export CC=/usr/bin/clang
+      export CXX=/usr/bin/clang++
+      mkdir -p build
+      cd build || exit
+      cmake -DASSERT_LEVEL=PARANOID -DMARCH=x86-64-v3 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBUILD_TESTS=False ..
+      make srsran_versioning # needed to generate hashes.h
+    - |
+      monitor_child_process() {
+          while true; do
+              ps -eo comm,pid,etimes | grep ${ANALYZER} | while read comm pid etimes; do
+                  if [ $etimes -gt $CHECK_PER_FILE_TIMEOUT ]; then
+                      echo "Killing child analysis process"
+                      kill $pid
+                  fi
+              done
+              sleep 30
+          done
+      }
+      export -f monitor_child_process
+  script:
+    - nohup bash -c monitor_child_process &
+    - static-analyzer.sh -i /tmp/codechecker_skip --jobs ${KUBERNETES_CPU_REQUEST} --analyzers ${ANALYZER} ${ANALYZER_ARGS} $CI_PROJECT_DIR
+  after_script:
+    - mv codechecker_html codechecker-${ANALYZER}-html
+  artifacts: &codechecker_artifacts
+    reports:
+      codequality: code-quality-report.json
+    paths:
+      - codechecker-${ANALYZER}-html${ARTIFACT_EXTRA_PATH}
+    when: always
+    expire_in: 10 minutes
+
+clang-tidy:
+  extends: .codechecker
+  stage: manual
+  rules:
+    - if: $ON_MR == "true" && $CI_MERGE_REQUEST_APPROVED == "true"
+    - if: $ON_MR
+      when: manual
+      allow_failure: false
+  variables:
+    ANALYZER: clang-tidy
+    ANALYZER_ARGS: --analyzer-config clang-tidy:take-config-from-directory=true --tidy-config .clang-tidy
+    ARTIFACT_EXTRA_PATH: "/index.html"
+
+cppcheck:
+  extends: .codechecker
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+  interruptible: false
+  retry: 2
+  variables:
+    ANALYZER: cppcheck
+    ANALYZER_ARGS: --cppcheck-max-template-recursion 5
+  artifacts:
+    <<: *codechecker_artifacts
+    expire_in: 1 day
+
+clangsa:
+  extends: .codechecker
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      when: manual
+      allow_failure: true
+    - if: $CI_DESCRIPTION =~ /Weekly/
+      when: manual
+      allow_failure: true
+  interruptible: false
+  variables:
+    ANALYZER: clangsa
+    ANALYZER_ARGS: --ctu
+  timeout: 8 hours
+
+# .coverity_base:
+#   image: $CR_REGISTRY_URI/coverity_image/2022.6.0:1.0.0
+#   stage: static
+#   needs: []
+#   variables:
+#     KUBERNETES_CPU_REQUEST: 6
+#     KUBERNETES_CPU_LIMIT: 6
+#     KUBERNETES_MEMORY_REQUEST: 12Gi
+#     KUBERNETES_MEMORY_LIMIT: 12Gi
+#   tags:
+#     - amd64
+#   interruptible: false
+#   timeout: 2 hours
+#   script:
+#     - |
+#       mkdir -p build
+#       cd build
+#       cmake ..
+#       cov-build --dir cov-int make -j${KUBERNETES_CPU_REQUEST}
+#       tar czvf srsgnb.tgz cov-int
+#       ver=$(git rev-parse HEAD)
+#     - |
+#       curl --form token=$COV_TOKEN \
+#         --form email=${COVERITY_EMAIL} \
+#         --form file=@srsgnb.tgz \
+#         --form version=$ver \
+#         --form description="${DESCRIPTION}" \
+#         https://scan.coverity.com/builds?project=${PROJECT_NAME}
+
+# coverity-dev:
+#   extends: .coverity_base
+#   rules:
+#     - if: $CI_DESCRIPTION =~ /Weekly/
+#   before_script:
+#     - export PROJECT_NAME="srsRAN_5G"
+#     - export DESCRIPTION="srsRAN Project dev build"
+#     - export COV_TOKEN="${COVERITY_TOKEN_DEV}"
+
+e2e tests tox:
+  stage: static
+  rules:
+    - if: $ON_MR
+      changes:
+        - tests/e2e/**/*
+  variables:
+    PY_DIR: tests/e2e
+  before_script:
+    - apk add build-base
+  extends: .tox
+
+################################################################################
+## Build + Unit Tests + Integration tests
+################################################################################
+
+# In build.yml
+
+################################################################################
+# Doc generation
+################################################################################
+unit coverage:
+  stage: documentation
+  image:
+    name: ${GITLAB_REGISTRY_URI}/${CI_TOOLS_REPO}/report-generator:5.1.26
+    entrypoint: ["/bin/sh", "-c"]
+  rules:
+    - if: $ON_MR
+      variables:
+        coverage_report: summary
+      when: always # Even if previous stages/required jobs fail
+  before_script:
+    - PACKAGE_URL=${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/coverage/${CI_COMMIT_BRANCH}${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}/coverage_history.tar.gz
+    # Download coverage history from the registry
+    - |
+      download_from_registry() {
+        apk add curl
+        
+        cd ${CI_PROJECT_DIR}
+        http_code=$(curl -w "%{http_code}" --header "PRIVATE-TOKEN: $CODEBOT_TOKEN" "${PACKAGE_URL}" -o output.tar.gz)
+        if [[ $http_code == "200" ]]; then
+          tar -xf output.tar.gz
+        fi
+      }
+    # Publish coverage history folder to the registry
+    - |
+      publish_to_registry() {
+        cd ${CI_PROJECT_DIR}
+        tar -czf coverage_history.tar.gz coverage_history
+        curl --fail --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file coverage_history.tar.gz "${PACKAGE_URL}"
+      }
+  script:
+    - |
+      if [[ $coverage_report = "full" ]]; then
+        download_from_registry
+        HTML_TYPE=Html
+        HISTORY=-historydir:coverage_history
+      else
+        HTML_TYPE=HtmlSummary
+        HISTORY=
+      fi
+    - |
+      ReportGenerator -reports:*coverage.xml -targetdir:coverage_html ${HISTORY} \
+        -title:${CI_PROJECT_NAME} -tag:${CI_COMMIT_SHA} \
+        -reporttypes:"${HTML_TYPE};TextSummary"
+    - cat coverage_html/Summary.txt
+    - coverage_value=$(cat coverage_html/Summary.txt | sed -n 's/^\s*Line coverage:\s*\(.*\)\%/\1/p')
+    - |
+      if [[ $coverage_report = "full" ]]; then
+        publish_to_registry
+      fi
+    - |
+      export metric_prefix=""
+      if [[ $ON_MR == "true" ]]; then metric_prefix="_pr"; fi
+      echo "coverage${metric_prefix},pipeline=${CI_PIPELINE_ID},os=${OS} value=${coverage_value}" >> build/build_time_metrics.txt
+    - |
+      influx write --host $INFLUXDB_URL --token $INFLUXDB_TOKEN --org $INFLUXDB_ORG \
+        --bucket ci --file build/build_time_metrics.txt
+  coverage: /^\s*Line coverage:\s*\d+.\d+\%/
+  artifacts: &unit_coverage_artifacts
+    paths:
+      - coverage_html
+    expire_in: 10 minutes
+  retry: 2
+  needs:
+    - job: intermediate commits cached
+      optional: true
+      artifacts: true
+    - job: intermediate commits clean
+      optional: true
+      artifacts: true
+    - job: smoke release update cache
+      optional: true
+      artifacts: true
+
+unit coverage dev:
+  extends: unit coverage
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      variables:
+        coverage_report: full
+      when: always # Even if previous stages/required jobs fail
+  artifacts:
+    <<: *unit_coverage_artifacts
+    expire_in: 1 day
+
+pages:
+  stage: documentation
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      when: always # Even if previous stages/required jobs fail
+      allow_failure: true
+  image: ${GITLAB_REGISTRY_URI}/${CI_TOOLS_REPO}/doxygen:1.9.8-1.2023.7
+  script:
+    - mkdir public
+    - mv coverage_html public/
+    - mv codechecker*html public/
+    - mv docs/index.html public/index.html
+    - docker/scripts/install_dependencies.sh
+    - apt-get update && apt-get install -y --no-install-recommends rsync
+    - |
+      rm -Rf build
+      mkdir build
+      cd build || exit
+      cmake ..
+      make -j $(nproc) doxygen
+      cd ..
+    - mkdir public/doxygen
+    - rsync -a build/docs/html/ public/doxygen/
+  after_script:
+    - |
+      if [ $CI_JOB_STATUS = "failed" ]; then
+        mkdir -p public
+        mv docs/fail.html public/index.html
+      fi
+    - mv docs/*.png public/
+    - sed -i 's/commit_hash/'$CI_COMMIT_SHA'/' public/index.html
+  needs:
+    - job: unit coverage dev
+      artifacts: true
+    - job: cppcheck
+      artifacts: true
+  artifacts:
+    paths:
+      - public
+    expire_in: 10 minutes
+
+################################################################################
+# Release dryrun
+################################################################################
+update agpl main dryrun:
+  extends: update private branch
+  stage: .post
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      when: always
+  variables:
+    PRIVATE_BRANCH: agpl_main
+    HEADERS: "true"
+    MODE: "dryrun"
+  needs: []
+
+create-tags:
+  extends: .create-tag
+  stage: .post
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      when: delayed
+      start_in: 3 hours
+  script:
+    - |
+      for name in $TAG_NAME_ARRAY; do
+        create_tag "${name}_$(date -u +"%Y.%m.%d")"
+      done
+  needs: []
+  retry: 2
+
+################################################################################
+# Enable / Disable pipelines
+################################################################################
+scheduler:
+  # Override default scheduler job
+  # Enabling branches on default_branch will also apply any change done
+  stage: ci
+  extends: .enable-schedule-by-branch
+  rules:
+    - if: $ON_DEFAULT_BRANCH
+  variables:
+    ENABLE: "true"
+    BRANCH: $CI_COMMIT_BRANCH
+  dependencies: []
+
+disable current schedule:
+  stage: .post
+  extends: .enable-schedule-by-description
+  rules:
+    - if: $CI_DESCRIPTION =~ /Nightly Build Unit Tests/
+      when: always
+    - if: $CI_DESCRIPTION =~ /Nightly E2E Tests/
+      when: always
+    - if: $CI_DESCRIPTION =~ /Alternative OSs/
+      when: always
+    - if: $CI_DESCRIPTION =~ /Weekly/
+      when: always
+  interruptible: false
+  variables:
+    ENABLE: "false"
+    BRANCH: $CI_COMMIT_REF_NAME
+    DESCRIPTION: $CI_DESCRIPTION
+  dependencies: []
