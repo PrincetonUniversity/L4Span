@@ -1,4 +1,4 @@
-# L4Span
+![L4span logo](figures/l4span_logo.png "L4Span")
 
 **L4Span** is a prototype implementation for Low-Latency Low-Loss and Scalable (L4S) congestion signal architecture in the 5G network to achieve ultra-low sojourn time in the RLC buffer while maintaining a good capacity usage. L4Span is located above the SDAP layer to perform the ECN marking for 1) uplink ACK packet to short-circuit the RAN if possible (for TCP traffic) or 2) downlink packet to enable generic L4S marking mechanism (for UDP or QUIC traffic).
 
@@ -44,13 +44,18 @@ Build Preparation
   * mbedTLS:             [https://www.trustedfirmware.org/projects/mbed-tls/](https://www.trustedfirmware.org/projects/mbed-tls/)
   * googletest:          [https://github.com/google/googletest/](https://github.com/google/googletest/)
 
-You can install the build tools and mandatory requirements for some example distributions with the commands below:
+You can install the build tools and mandatory requirements with the commands below:
 
 <details open>
 <summary><strong>Ubuntu 22.04</strong></summary>
 
 ```bash
 sudo apt-get install cmake make gcc g++ pkg-config libfftw3-dev libmbedtls-dev libsctp-dev libyaml-cpp-dev libgtest-dev
+
+# uhd driver install
+sudo add-apt-repository ppa:ettusresearch/uhd
+sudo apt-get update
+sudo apt-get install libuhd-dev uhd-host
 ```
 
 Build and Run Instructions
@@ -74,7 +79,7 @@ Then build the code-base:
     make test -j $(nproc)
 ```
 
-Start the [Open-5GS](https://open5gs.org/open5gs/docs/guide/01-quickstart/) as the 5G core. 
+Start the [Open-5GS](https://open5gs.org/open5gs/docs/guide/01-quickstart/) as the 5G core.
 
 And use the configuration file in `config/l4span/cu.yml` and `config/l4span/du_rf_b200_tdd_n78_20mhz.yml` as the CU and DU configuration files.
 
