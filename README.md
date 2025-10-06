@@ -1,4 +1,4 @@
-<img src="figures/l4span_logo.png" alt="l4span_logo" width="200"/>
+<img src="figures/l4span_logo.png" alt="l4span_logo" width="150"/>
 
 **L4Span** is a prototype implementation for Low-Latency Low-Loss and Scalable (L4S) congestion signal architecture in the 5G network to achieve ultra-low sojourn time in the RLC buffer while maintaining a good capacity usage. L4Span is located above the SDAP layer to perform the ECN marking for 1) uplink ACK packet to short-circuit the RAN if possible (for TCP traffic) or 2) downlink packet to enable generic L4S marking mechanism (for UDP or QUIC traffic).
 
