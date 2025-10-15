@@ -34,6 +34,7 @@ public:
     l4s_tq_thr = 10000; // 10000 ns = 10 ms;
     classic_tq_thr = 100000; // 50000 ns = 50 ms;
     dequeue_history = (double*)malloc(sizeof(double) * dequeue_rate_pred_wind);
+    n_max = 1500*150;
     nof_ue = 1;
   }
   ~mark_entity_impl() override = default;
@@ -460,7 +461,7 @@ private:
 
   double l4s_tq_thr;
   double classic_tq_thr;
-  uint32_t n_max = 1500*20;
+  uint32_t n_max;
 
   // called upon receiving a downlink packet
   void drb_queue_update(iphdr ipv4_hdr, drb_id_t drb_id, std::chrono::microseconds now, ip::five_tuple f_tuple)

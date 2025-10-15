@@ -44,7 +44,7 @@ Build Preparation
   * mbedTLS:             [https://www.trustedfirmware.org/projects/mbed-tls/](https://www.trustedfirmware.org/projects/mbed-tls/)
   * googletest:          [https://github.com/google/googletest/](https://github.com/google/googletest/)
 
-You can install the build tools and mandatory requirements with the commands below:
+You can install the build tools and mandatory requirements with the commands below in Ubuntu:
 
 <details open>
 <summary><strong>Ubuntu 22.04</strong></summary>
