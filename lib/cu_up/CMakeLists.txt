@@ -41,6 +41,7 @@ target_link_libraries(srsran_cu_up
         e1ap_asn1
         srsran_sdap
         paws_mark
+        ring_buffer
         srsran_security
         srsran_support
         srslog

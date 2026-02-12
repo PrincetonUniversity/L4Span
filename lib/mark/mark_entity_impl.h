@@ -4,7 +4,10 @@
 #include "mark_entity_tx_impl.h"
 #include "mark_session_logger.h"
 #include "srsran/mark/mark.h"
+#include "ring_buffer/ring_buffer.h"
+
 #include "srsran/support/timers.h"
+#include <cstdint>
 #include <unordered_map>
 #include "srsran/ctsa/ctsa.h"
 
@@ -270,6 +273,15 @@ public:
     auto timestamp = std::chrono::duration_cast<std::chrono::microseconds>(duration);
 
     // TODO_HW: maybe remove some too old entries to save memory.
+    const uint32_t MOD  = pdcp_sn_maxs[drb_id_];  // Size of the SN space. MUST be a power of 2. 
+    const uint32_t MASK = MOD -1 ;                // Used to compute the modulus
+    const uint32_t HALF = MOD >> 1;               // If distance higher tham HALF, may be disordered
+
+    // CHECK IF HAS TO CREATE RING BUFFER
+    if (drb_pdcp_sn_ts.find(drb_id_) == drb_pdcp_sn_ts.end()){
+      logger.log_debug("Normally called once. DRB {} / SN Max = {}",drb_id_,MOD);
+      drb_pdcp_sn_ts[drb_id_] = RingBuffer(MOD);
+    }
 
     if (feedback.highest_pdcp_sn_retransmitted != 0) {
       // TODO_HW: add wrap around determination
@@ -282,7 +294,7 @@ public:
       if (next_tx_id[drb_id_] == 0) {
         dequeue_rate = 0;
       } else {
-        for (size_t i = next_tx_id[drb_id_]; i < drb_pdcp_sn_ts[drb_id_].size(); i++) {
+        for (uint32_t i = next_tx_id[drb_id_]; i <= drb_pdcp_sn_ts[drb_id_].get_last_pdcp_ind(); i++) {
           if (drb_pdcp_sn_ts[drb_id_][i].pdcp_sn <= feedback.highest_pdcp_sn_transmitted){
             total_size += drb_pdcp_sn_ts[drb_id_][i].size;
           }
@@ -295,7 +307,7 @@ public:
       }
 
       // Update the dequeue rate estimation errors
-      for (size_t i = next_tx_id[drb_id_]; i < drb_pdcp_sn_ts[drb_id_].size(); i++) {
+      for (uint32_t i = next_tx_id[drb_id_]; i <= drb_pdcp_sn_ts[drb_id_].get_last_pdcp_ind(); i++) {
         if (drb_pdcp_sn_ts[drb_id_][i].pdcp_sn <= feedback.highest_pdcp_sn_retransmitted) {
           drb_pdcp_sn_ts[drb_id_][i].transmitted_time = timestamp;
           // if (dequeue_rate != 0) {
@@ -321,16 +333,22 @@ public:
         }
       }
       
-      if (next_tx_id[drb_id_] < feedback.highest_pdcp_sn_retransmitted + 1) {
+      uint32_t next_id = (feedback.highest_pdcp_sn_retransmitted + 1) & MASK; // Next to be sent; modulo 2^(nb_bits).
+      uint32_t delta = (next_id - next_tx_id[drb_id_]) & MASK;                // Compute the distance between both values in the ring
+      if (delta > 0 and delta < HALF){                                        // Difference not bigger than half the size of the ring
         change_mark_flag = true;
-        next_tx_id[drb_id_] = feedback.highest_pdcp_sn_retransmitted + 1;
+        next_tx_id[drb_id_] = next_id;
+        logger.log_info("Change Mark = True highest_pdcp = {} / next_id = {} / delta = {}",feedback.highest_pdcp_sn_retransmitted,next_id,delta);
+      }
+      else{
+        logger.log_info("change_mark_flag = **False** highest_pdcp = {} / next_id = {} / delta = {}",feedback.highest_pdcp_sn_retransmitted,next_id,delta);
       }
     }
 
     if (feedback.highest_pdcp_sn_delivered_retransmitted != 0) {
       // logger.log_debug("next_delivery_id {}, current feedback {}", next_delivery_id[drb_id_], feedback.highest_pdcp_sn_delivered_retransmitted);
       // TODO_HW: add wrap around determination
-      for (size_t i = next_delivery_id[drb_id_]; i < drb_pdcp_sn_ts[drb_id_].size(); i++) {
+      for (uint32_t i = next_delivery_id[drb_id_]; i <= drb_pdcp_sn_ts[drb_id_].get_last_pdcp_ind(); i++) {
         if (drb_pdcp_sn_ts[drb_id_][i].pdcp_sn <= feedback.highest_pdcp_sn_delivered_retransmitted) {
           drb_pdcp_sn_ts[drb_id_][i].delivered_time = timestamp;
         } else {
@@ -351,7 +369,7 @@ public:
         dequeue_rate = 0;
       } else {
         // next_tx_id[drb_id_]-1 > 0
-        for (size_t i = next_tx_id[drb_id_]; i < drb_pdcp_sn_ts[drb_id_].size(); i++) {
+        for (uint32_t i = next_tx_id[drb_id_]; i <= drb_pdcp_sn_ts[drb_id_].get_last_pdcp_ind(); i++) {
           if (drb_pdcp_sn_ts[drb_id_][i].pdcp_sn <= feedback.highest_pdcp_sn_transmitted){
             total_size += drb_pdcp_sn_ts[drb_id_][i].size;
           }
@@ -363,7 +381,7 @@ public:
         }
       }
 
-      for (size_t i = next_tx_id[drb_id_]; i < drb_pdcp_sn_ts[drb_id_].size(); i++) {
+      for (uint32_t i = next_tx_id[drb_id_]; i <= drb_pdcp_sn_ts[drb_id_].get_last_pdcp_ind(); i++) {
         if (drb_pdcp_sn_ts[drb_id_][i].pdcp_sn <= feedback.highest_pdcp_sn_transmitted){
           drb_pdcp_sn_ts[drb_id_][i].transmitted_time = timestamp;
           // if (dequeue_rate != 0) {
@@ -388,16 +406,22 @@ public:
           break;
         }
       }
-      if (next_tx_id[drb_id_] < feedback.highest_pdcp_sn_transmitted + 1) {
+      uint32_t next_id = (feedback.highest_pdcp_sn_transmitted + 1) & MASK;  // Next to be sent; modulo 2^(nb_bits)
+      uint32_t delta = (next_id - next_tx_id[drb_id_]) & MASK;               // Compute the distance between both values in the ring
+      if (delta > 0 and delta < HALF){                                                        // Difference not bigger than half the size of the ring
         change_mark_flag = true;
-        next_tx_id[drb_id_] = feedback.highest_pdcp_sn_transmitted + 1;
+        next_tx_id[drb_id_] = next_id;
+        logger.log_info("Change Mark = True highest_pdcp = {} / next_id = {} / delta = {}",feedback.highest_pdcp_sn_transmitted,next_id,delta);
+      }
+      else{
+        logger.log_info("change_mark_flag = **False** highest_pdcp = {} / next_id = {} / delta = {}",feedback.highest_pdcp_sn_transmitted,next_id,delta);
       }
     }
 
     if (feedback.highest_pdcp_sn_delivered != 0) {
       // logger.log_debug("next_delivery_id {}, current feedback {}", next_tx_id[drb_id_] - 1, feedback.highest_pdcp_sn_transmitted);
       // TODO_HW: add wrap around determination
-      for (size_t i = next_delivery_id[drb_id_]; i < drb_pdcp_sn_ts[drb_id_].size(); i++) {
+      for (uint32_t i = next_delivery_id[drb_id_]; i <= drb_pdcp_sn_ts[drb_id_].get_last_pdcp_ind(); i++) {
         if (drb_pdcp_sn_ts[drb_id_][i].pdcp_sn <= feedback.highest_pdcp_sn_delivered) {
           drb_pdcp_sn_ts[drb_id_][i].delivered_time = timestamp;
         } else {
@@ -409,6 +433,7 @@ public:
 
     if (change_mark_flag) {
       make_mark_decision(drb_id_);
+      logger.log_info("Made a marking decision for {}", drb_id_);
     }
     logger.log_info("Finished feedback for {}", drb_id_);
   }
@@ -429,7 +454,7 @@ private:
   std::unordered_map<qos_flow_id_t, drb_id_t> qfi_to_drb;
 
   /// @brief: Ingress queue state
-  std::unordered_map<drb_id_t, std::vector<mark_utils::pdcp_sn_size_ts>> drb_pdcp_sn_ts;
+  std::unordered_map<drb_id_t, RingBuffer> drb_pdcp_sn_ts;
   /// @brief: History queue state
   // std::unordered_map<drb_id_t, std::vector<mark_utils::pdcp_sn_size_ts>> drb_pdcp_sn_ts_egress;
 
@@ -591,36 +616,17 @@ private:
 
       drb_pdcp_sn_ts[drb_id].back().pred_dequeue_rate = pred_dq_rate;
       drb_pdcp_sn_ts[drb_id].back().est_dequeue_rate_error = dq_std;
-      // logger.log_debug("Finished predicting the average dqueue rate {} bytes / ns.", 
-        // pred_dq_rate);
-
-    //   // predict with the ARIMA first, then shift to the PID controller method
-    //   logger.log_debug("Start predicting using the ARIMA method.");
-    //   for (size_t i = next_tx_id[drb_id] - dequeue_rate_pred_wind; i < next_tx_id[drb_id]; i ++) {
-    //     dequeue_history[i-next_tx_id[drb_id]+dequeue_rate_pred_wind] = drb_pdcp_sn_ts[drb_id][i].cal_dequeue_rate;
-    //   }
-    //   arima_exec(arima_obj, dequeue_history);
-    //   logger.log_debug("Finished training the ARIMA method.");
-    //   arima_summary(arima_obj);
-    //   dequeue_xpred = (double*)calloc(drb_pdcp_sn_ts[drb_id].size() - next_tx_id[drb_id], sizeof(double));
-    //   dequeue_amse = (double*)calloc(drb_pdcp_sn_ts[drb_id].size() - next_tx_id[drb_id], sizeof(double));
-    //   arima_predict(arima_obj, dequeue_history, drb_pdcp_sn_ts[drb_id].size() - next_tx_id[drb_id], dequeue_xpred, dequeue_amse);
-    //   logger.log_debug("Finished predicting the ARIMA method dqueue rate {} bytes / ns.", 
-    //     dequeue_xpred[drb_pdcp_sn_ts[drb_id].size() - next_tx_id[drb_id]-1]);
-
-    //   drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].pred_dequeue_rate = dequeue_xpred[drb_pdcp_sn_ts[drb_id].size() - next_tx_id[drb_id] - 1];
-    //   drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].est_dequeue_rate_error = dequeue_amse[drb_pdcp_sn_ts[drb_id].size() - next_tx_id[drb_id] - 1];
     }
   }
 
   void predict_queuing_delay(drb_id_t drb_id) 
   {
     double standing_queue_sz = 0;
-    for (size_t i = next_tx_id[drb_id]; i < drb_pdcp_sn_ts[drb_id].size(); i ++) {
+    for (uint32_t i = next_tx_id[drb_id]; i <= drb_pdcp_sn_ts[drb_id].get_last_pdcp_ind(); i ++) {
       standing_queue_sz += drb_pdcp_sn_ts[drb_id][i].size;
     }
     drb_pdcp_sn_ts[drb_id].back().standing_queue_size = standing_queue_sz;
-    drb_pdcp_sn_ts[drb_id].back().est_queue_delay = standing_queue_sz / drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].pred_dequeue_rate;
+    drb_pdcp_sn_ts[drb_id].back().est_queue_delay = standing_queue_sz / drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].get_last_pdcp_ind()].pred_dequeue_rate;
   }
 
   void make_mark_decision(drb_id_t drb_id) 
@@ -658,24 +664,16 @@ private:
     }
 
     // Classic flow only
-    // double real_classic_tq_thr = classic_tq_thr * sqrt(nof_ue);
-    // double required_dequeue_rate_classic = drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].standing_queue_size / real_classic_tq_thr;
-    // double predicted_dequeue_rate_classic = drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].pred_dequeue_rate;
-    // double predicted_error_classic = drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].est_dequeue_rate_error;
     if (rx.get()->drb_flow_state[drb_id].have_classic) {
       //&& !rx.get()->drb_flow_state[drb_id].have_l4s) {
 
       uint32_t classic_thres = n_max / nof_ue;
       if (drb_pdcp_sn_ts[drb_id].back().standing_queue_size > classic_thres) {
         // Final design
-        // rx.get()->drb_flow_state[drb_id].mark_classic = ((drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].standing_queue_size - (double) classic_thres) / (double)classic_thres) / 100 *  // * RAND_MAX; 
-        //      ((drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].standing_queue_size - (double)classic_thres) / (double)classic_thres)  / 100 * RAND_MAX;
 
         // Final design opt-2
         rx.get()->drb_flow_state[drb_id].mark_classic = (1460 * 8 * 1.75 / 2 / predicted_dequeue_rate / predicted_qdely) * 
           (1460 * 8 * 1.75 / 2 / predicted_dequeue_rate / predicted_qdely) * RAND_MAX;
-              // ((drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].standing_queue_size - (double) classic_thres) / (double)classic_thres) / 100 *  // * RAND_MAX; 
-              // ((drb_pdcp_sn_ts[drb_id][drb_pdcp_sn_ts[drb_id].size()-1].standing_queue_size - (double)classic_thres) / (double)classic_thres)  / 100 * RAND_MAX;
       } else {
         rx.get()->drb_flow_state[drb_id].mark_classic = 0;
       }
